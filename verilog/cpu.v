@@ -57,6 +57,7 @@ module cpu(
 
 	// {{{ flush control
 	reg flush_s1, flush_s2, flush_s3;
+   	reg pcsrc;
 	always @(*) begin
 		flush_s1 <= 1'b0;
 		flush_s2 <= 1'b0;
@@ -79,6 +80,9 @@ module cpu(
 	wire [31:0] pc4;  // PC + 4
 	assign pc4 = pc + 4;
 
+   reg              stall_s1_s2;
+   wire [31:0] baddr_s4;
+   
 	always @(posedge clk) begin
 		if (stall_s1_s2) 
 			pc <= pc;
@@ -128,6 +132,9 @@ module cpu(
 
 	// register memory
 	wire [31:0] data1, data2;
+   wire regwrite_s5;
+   wire [4:0] wrreg_s5;
+   wire [31:0]	wrdata_s5;
 	regm regm1(.clk(clk), .read1(rs), .read2(rt),
 			.data1(data1), .data2(data2),
 			.regwrite(regwrite_s5), .wrreg(wrreg_s5),
@@ -222,6 +229,7 @@ module cpu(
 	// ALU
 	// second ALU input can come from an immediate value or data
 	wire [31:0] alusrc_data2;
+   reg [31:0] fw_data2_s3;
 	assign alusrc_data2 = (alusrc_s3) ? seimm_s3 : fw_data2_s3;
 	// ALU control
 	wire [3:0] aluctl;
@@ -231,6 +239,9 @@ module cpu(
 	// ALU
 	wire [31:0]	alurslt;
 	reg [31:0] fw_data1_s3;
+   wire [31:0]	alurslt_s4;
+   	reg [1:0] forward_a;
+	reg [1:0] forward_b;
 	always @(*)
 	case (forward_a)
 			2'd1: fw_data1_s3 = alurslt_s4;
@@ -245,14 +256,14 @@ module cpu(
 					.in(zero_s3), .out(zero_s4));
 
 	// pass ALU result and zero to stage 4
-	wire [31:0]	alurslt_s4;
+	
 	regr #(.N(32)) reg_alurslt(.clk(clk), .clear(flush_s3), .hold(1'b0),
 				.in({alurslt}),
 				.out({alurslt_s4}));
 
 	// pass data2 to stage 4
 	wire [31:0] data2_s4;
-	reg [31:0] fw_data2_s3;
+	
 	always @(*)
 	case (forward_b)
 			2'd1: fw_data2_s3 = alurslt_s4;
@@ -274,7 +285,7 @@ module cpu(
 	regr #(.N(2)) branch_s3_s4(.clk(clk), .clear(flush_s3), .hold(1'b0),
 				.in(branch_s3), .out(branch_s4));
 
-	wire [31:0] baddr_s4;
+	
 	regr #(.N(32)) baddr_s3_s4(.clk(clk), .clear(flush_s3), .hold(1'b0),
 				.in(baddr_s3), .out(baddr_s4));
 	// }}}
@@ -282,7 +293,7 @@ module cpu(
 	// {{{ stage 4, MEM (memory)
 
 	// pass regwrite and memtoreg to stage 5
-	wire regwrite_s5;
+	
 	wire memtoreg_s5;
 	regr #(.N(2)) reg_regwrite_s4(.clk(clk), .clear(1'b0), .hold(1'b0),
 				.in({regwrite_s4, memtoreg_s4}),
@@ -305,13 +316,12 @@ module cpu(
 				.out(alurslt_s5));
 
 	// pass wrreg to stage 5
-	wire [4:0] wrreg_s5;
+	
 	regr #(.N(5)) reg_wrreg_s4(.clk(clk), .clear(1'b0), .hold(1'b0),
 				.in(wrreg_s4),
 				.out(wrreg_s5));
 
 	// branch
-	reg pcsrc;
 	always @(*) begin
 		case (1'b1)
 			branch_s4[`BRANCH_BEQ]: pcsrc <= zero_s4;
@@ -323,7 +333,7 @@ module cpu(
 			
 	// {{{ stage 5, WB (write back)
 
-	wire [31:0]	wrdata_s5;
+	
 	assign wrdata_s5 = (memtoreg_s5 == 1'b1) ? rdata_s5 : alurslt_s5;
 
 	// }}}
@@ -333,8 +343,7 @@ module cpu(
 	// stage 3 (MEM) -> stage 2 (EX)
 	// stage 4 (WB) -> stage 2 (EX)
 
-	reg [1:0] forward_a;
-	reg [1:0] forward_b;
+
 	always @(*) begin
 		// If the previous instruction (stage 4) would write,
 		// and it is a value we want to read (stage 3), forward it.
@@ -374,7 +383,7 @@ module cpu(
 	 *   lw  $1, 16($3)  ; I-type, rt_s3 = $1, memread_s3 = 1
 	 *   add $2, $1, $1  ; R-type, rs_s2 = $1, rt_s2 = $1, memread_s2 = 0
 	 */
-	reg stall_s1_s2;
+	
 	always @(*) begin
 		if (memread_s3 == 1'b1 && ((rt == rt_s3) || (rs == rt_s3)) ) begin
 			stall_s1_s2 <= 1'b1;  // perform a stall
