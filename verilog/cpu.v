@@ -28,7 +28,11 @@
 `endif
 
 module cpu(
-		input wire clk);
+	   input wire        clk,
+           input wire [31:0] im_add,
+           input wire [31:0] im_data,
+           input wire        im_en,
+           input wire        im_rd_wr);
 
 	parameter NMEM = 20;  // number in instruction memory
 	parameter IM_DATA = "im_data.txt";
@@ -99,13 +103,20 @@ module cpu(
 						.in(pc4), .out(pc4_s2));
 
 	// instruction memory
-	wire [31:0] inst;
-	wire [31:0] inst_s2;
-	im #(.NMEM(NMEM), .IM_DATA(IM_DATA))
-		im1(.clk(clk), .addr(pc), .data(inst));
-	regr #(.N(32)) regr_im_s2(.clk(clk),
-						.hold(stall_s1_s2), .clear(flush_s1),
-						.in(inst), .out(inst_s2));
+   wire [31:0] 	    inst;
+   wire [31:0] 	    inst_s2;
+   im #(.NMEM(NMEM), .IM_DATA(IM_DATA))
+   im1(.clk(clk), 
+       .addr(pc),
+       .im_add(im_add),
+       .im_data(im_data),
+       .im_en(im_en),
+       .im_rd_rw(im_rd_rw),
+       .data(inst)
+       );
+   regr #(.N(32)) regr_im_s2(.clk(clk),
+			     .hold(stall_s1_s2), .clear(flush_s1),
+			     .in(inst), .out(inst_s2));
 
 	// }}}
 

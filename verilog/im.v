@@ -22,9 +22,13 @@
 `define _im
 
 module im(
-		input wire			clk,
-		input wire 	[31:0] 	addr,
-		output wire [31:0] 	data);
+		input wire 	   clk,
+		input wire [31:0]  addr,
+		input wire [31:0]  im_add,
+		input wire [31:0]  im_data,
+		input wire 	   im_en,
+		input wire 	   im_rd_wr, 
+		output wire [31:0] data);
 
 	parameter NMEM = 128;   // Number of memory entries,
 							// not the same as the memory size
@@ -33,7 +37,7 @@ module im(
 	reg [31:0] mem [0:127];  // 32-bit memory with 128 entries
 
 	initial begin
-		$readmemh(IM_DATA, mem, 0, NMEM-1);
+		//$readmemh(IM_DATA, mem, 0, NMEM-1);
 	end
 
 	assign data = mem[addr[8:2]][31:0];
