@@ -15,19 +15,28 @@ module top();
  `include "test.sv"
    
    //clock delcaration and generation
-   bit clock;
+   bit clock_mem;
+   bit clock_dut;
    initial
      begin
         #20;
-        forever #10 clock = ~clock;
-     end
+	fork
+	   begin
+              forever #10 clock_mem = ~clock_mem;
+	   end
+	   begin
+	      #100;
+	      forever #10 clock_dut = ~clock_dut;
+	   end
+	join_none
+     end // initial begin
 
    //memory interface instance
-   mem_interface mem_intf(clock);
+   mem_interface mem_intf(clock_mem);
 
    configuration cfg = new("cfg",mem_intf);
 
-   cpu DUT (.clk(clock),
+   cpu DUT (.clk(clock_dut),
             .im_add(mem_intf.mem_add),
 	    .im_data(mem_intf.mem_data),
 	    .im_en(mem_intf.mem_en),

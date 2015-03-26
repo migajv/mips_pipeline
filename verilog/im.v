@@ -19,28 +19,38 @@
  */
 
 `ifndef _im
-`define _im
+ `define _im
 
 module im(
-		input wire 	   clk,
-		input wire [31:0]  addr,
-		input wire [31:0]  im_add,
-		input wire [31:0]  im_data,
-		input wire 	   im_en,
-		input wire 	   im_rd_wr, 
-		output wire [31:0] data);
+	  input wire 	     clk,
+	  input wire [31:0]  addr,
+	  input wire [31:0]  im_add,
+	  input wire [31:0]  im_data,
+	  input wire 	     im_en,
+	  input wire 	     im_rd_wr, 
+	  output wire [31:0] data);
 
-	parameter NMEM = 128;   // Number of memory entries,
-							// not the same as the memory size
-	parameter IM_DATA = "im_data.txt";  // file to read data from
+   parameter NMEM = 128;   // Number of memory entries,
+   // not the same as the memory size
+   parameter IM_DATA = "im_data.txt";  // file to read data from
 
-	reg [31:0] mem [0:127];  // 32-bit memory with 128 entries
+   reg [31:0] 		     mem [0:127];  // 32-bit memory with 128 entries
 
-	initial begin
-		//$readmemh(IM_DATA, mem, 0, NMEM-1);
-	end
+   initial 
+     begin
+	//$readmemh(IM_DATA, mem, 0, NMEM-1);
 
-	assign data = mem[addr[8:2]][31:0];
+     end
+
+   always@(*)
+     begin
+	if (im_rd_wr == 1)
+	  begin
+	     mem[im_add] = im_data;
+	  end
+     end
+   
+   assign data = mem[addr[8:2]][31:0];
 endmodule
 
 `endif

@@ -5,10 +5,11 @@
 //import ovm_pkg::*;
 class configuration extends ovm_object;
    
-   //virtual mem_interface.MEM mem_intf;
-   virtual mem_interface.MEM_1 mem_intf;
+   virtual mem_interface.MEM_cb mem_intf;
+   //virtual mem_interface.MEM_1 mem_intf;
    
-    function new(string name, virtual mem_interface.MEM_1 _if);
+    function new(string name, virtual mem_interface.MEM_cb _if);
+//    function new(string name, virtual mem_interface.MEM_1 _if);
       super.new(name);
       this.mem_intf = _if;
    endfunction // new

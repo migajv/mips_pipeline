@@ -7,8 +7,8 @@ class driver extends ovm_driver #(packet);
    configuration cfg;
    static integer i ;
    packet pkt;
-   //virtual mem_interface.MEM mem_intf;
-   virtual 	  mem_interface.MEM_1 mem_intf;
+   virtual mem_interface.MEM_cb mem_intf;
+   //virtual 	  mem_interface.MEM_1 mem_intf;
    
    ovm_analysis_port #(packet) drvr2sb_port;
 
@@ -52,13 +52,13 @@ class driver extends ovm_driver #(packet);
 
    virtual task cfg_im(packet pkt);
       ovm_report_info(get_full_name(),"START of cfg_im() method", OVM_LOW);
-      
-      //mem_intf.cb.mem_rd_wr <= 1;
-      //mem_intf.cb.mem_add <= this.i;
-      //mem_intf.cb.mem_data <= pkt.ir;
-      mem_intf.mem_rd_wr = 1;
-      mem_intf.mem_add = this.i;
-      mem_intf.mem_data = pkt.ir;      
+      @(posedge mem_intf.clock);
+      mem_intf.cb.mem_rd_wr <= 1;
+      mem_intf.cb.mem_add <= this.i;
+      mem_intf.cb.mem_data <= pkt.ir;
+      //mem_intf.mem_rd_wr = 1;
+      //mem_intf.mem_add = this.i;
+      //mem_intf.mem_data = pkt.ir;      
       this.i ++;
       $monitor ("i = %d", i);
       

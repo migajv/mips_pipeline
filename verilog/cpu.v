@@ -111,7 +111,7 @@ module cpu(
        .im_add(im_add),
        .im_data(im_data),
        .im_en(im_en),
-       .im_rd_rw(im_rd_rw),
+       .im_rd_wr(im_rd_wr),
        .data(inst)
        );
    regr #(.N(32)) regr_im_s2(.clk(clk),
