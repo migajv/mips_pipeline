@@ -23,6 +23,7 @@
 
 module im(
 	  input wire 	     clk,
+	  input wire         rst,
 	  input wire [31:0]  addr,
 	  input wire [31:0]  im_add,
 	  input wire [31:0]  im_data,
@@ -35,13 +36,15 @@ module im(
    parameter IM_DATA = "im_data.txt";  // file to read data from
 
    reg [31:0] 		     mem [0:127];  // 32-bit memory with 128 entries
-
+   integer 		     i;
+   
    initial 
      begin
 	//$readmemh(IM_DATA, mem, 0, NMEM-1);
 
      end
 
+/* -----\/----- EXCLUDED -----\/-----
    always@(*)
      begin
 	if (im_rd_wr == 1)
@@ -49,6 +52,18 @@ module im(
 	     mem[im_add] = im_data;
 	  end
      end
+ -----/\----- EXCLUDED -----/\----- */
+   always @(*) begin
+      if (!rst) begin
+	 for (i = 0; i < 128; i=i+1) begin
+	    mem[i] <= 32'h0;
+	 end
+      end
+      else if (im_rd_wr) begin
+	 mem[im_add] <= im_data;
+      end
+   end
+
    
    assign data = mem[addr[8:2]][31:0];
 endmodule

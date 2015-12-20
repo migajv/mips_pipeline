@@ -23,10 +23,10 @@ module alu_control(funct, aluop, aluctl);
 
 	always @(*) begin
 		case(aluop)
-			2'd0: aluctl = 4'd2;
-			2'd1: aluctl = 4'd6;
-			2'd2: aluctl = _funct;
-			2'd3: aluctl = 4'd2;
+			2'd0: aluctl = 4'd2;  // oc_lw | oc_addi | oc_sw, add
+			2'd1: aluctl = 4'd6;  // oc_beq | oc_bne , sub
+			2'd2: aluctl = _funct; // oc_alu 
+			//2'd3: aluctl = 4'd2;  //couldn't be 'd3
 			default: aluctl = 0;
 		endcase
 	end

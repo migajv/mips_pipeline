@@ -24,19 +24,19 @@ class driver extends ovm_driver #(packet);
 
    function void build ();
       super.build();
-      ovm_report_info(get_full_name(),"START of build", OVM_LOW);
+      //ovm_report_info(get_full_name(),"START of build", OVM_LOW);
       drvr2sb_port = new ("drvr2sb",this);
-      ovm_report_info(get_full_name(),"END of build", OVM_LOW);
+      //ovm_report_info(get_full_name(),"END of build", OVM_LOW);
    endfunction // build
 
    function void end_of_elaboration();
       ovm_object tmp;
       super.end_of_elaboration();
-      ovm_report_info(get_full_name(),"START of elaboration", OVM_LOW);
+      //ovm_report_info(get_full_name(),"START of elaboration", OVM_LOW);
       assert(get_config_object("configuration",tmp));
       assert($cast(cfg,tmp));
       this.mem_intf = cfg.mem_intf;
-      ovm_report_info(get_full_name(),"END of elaboration", OVM_LOW);
+      //ovm_report_info(get_full_name(),"END of elaboration", OVM_LOW);
    endfunction // end_of_elaboration
 
    

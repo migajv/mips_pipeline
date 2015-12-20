@@ -9,8 +9,7 @@ class environment extends ovm_env;
 
    sequencer seqncr;
    driver drvr;
-   
-   
+   receiver rcvr;
    
    function new(string name = "environment", ovm_component parent = null);
       super.new(name, parent);
@@ -22,7 +21,7 @@ class environment extends ovm_env;
       ovm_report_info(get_full_name(),"START of build", OVM_LOW);
       drvr = driver::type_id::create("drvr",this);
       seqncr = sequencer::type_id::create("seqncr",this);
-      
+      rcvr = receiver::type_id::create("rcvr",this);
       ovm_report_info(get_full_name(),"END of build", OVM_LOW);
    endfunction // build
 

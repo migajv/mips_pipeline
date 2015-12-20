@@ -29,7 +29,7 @@ module control(
 		endcase
 	end
 
-	assign regdst = ~(oc_lw | oc_addi);
+	assign regdst = ~(oc_lw | oc_addi); //choose destination register, whether rt or rd
 
 	assign branch[`BRANCH_BEQ] = oc_beq;
 	assign branch[`BRANCH_BNE] = oc_bne;
@@ -38,7 +38,8 @@ module control(
 
 	assign memtoreg = oc_lw;
 
-	assign aluop[0] = oc_beq | oc_bne;
+        // to encode op control for ALU
+	assign aluop[0] = oc_beq | oc_bne;  
 	assign aluop[1] = ~(oc_lw | oc_addi | oc_beq | oc_sw | oc_bne);
 
 	assign memwrite = oc_sw;

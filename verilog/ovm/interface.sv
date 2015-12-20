@@ -20,7 +20,6 @@ interface mem_interface(input bit clock);
    endclocking:cb
 
    modport MEM_cb(clocking cb, input clock);
-   modport MEM_1(      output   mem_data, mem_add, mem_en, mem_rd_wr);
    
 endinterface:mem_interface
 
@@ -33,7 +32,29 @@ interface input_interface(input bit clock);
 
 endinterface:input_interface
 
+interface output_interface(input bit clock);
+   
+   parameter setup_time = 5ns;
+   parameter hold_time = 3ns;
+   
+   wire [31:0] pc;
+   wire [31:0] reg5;
+   
+   clocking cb@(posedge clock);
+      default input #setup_time output #hold_time;
+      input    pc;
+      input    reg5;
       
+   endclocking:cb   
+
+   modport OP(clocking cb, input clock);
+endinterface:output_interface
+
+interface internal_interface(input wire [31:0] reg5);
+endinterface // internal_interface
+
+   
+
 `endif //  `ifndef GUARD_INTERFACE
 
    

@@ -16,8 +16,8 @@ class test1 extends ovm_test;
       super.build();
       set_config_int("*","recording_detail",OVM_FULL);
       
-      set_config_string("*.seqncr", "default_sequence", "seq_1");
-      set_config_string("*.seqncr", "count", 2);
+      set_config_string("*.seqncr", "default_sequence", "seq_2");
+      //set_config_string("*.seqncr", "count", 2);
 
       t_env = environment::type_id::create("t_env",this);
    endfunction // build
@@ -25,7 +25,7 @@ class test1 extends ovm_test;
    
    task run();
       t_env.seqncr.print();
-      #1000;
+      #10000;
       global_stop_request();
    endtask:run
 
