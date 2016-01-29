@@ -39,13 +39,13 @@ module top();
 
    //memory interface instance
    mem_interface mem_intf(clock_mem);
-   // output_interface output_intf(clock_dut);
+   output_interface output_intf(clock_dut);
    //internal_interface int_intf();
    
    
    configuration cfg;
 
-   cpu DUT (.clk(clock_dut),
+   cpu_ooo DUT (.clk(clock_dut),
 	    .rst(rst_dut),
             .im_add(mem_intf.mem_add),
 	    .im_data(mem_intf.mem_data),

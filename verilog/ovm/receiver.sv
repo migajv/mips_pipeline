@@ -32,7 +32,7 @@ class receiver extends ovm_component;
 	begin
 	   @(posedge output_intf.clock)
 	     begin
-		if (output_intf.cb.pc == 32'h0024)
+		if (output_intf.cb.pc == 32'h0050)
 		  begin
 		     //if ($root.top.DUT.regm1.mem[1] != 32'h5)
 		     if (int_intf.reg5 != 32'h5)

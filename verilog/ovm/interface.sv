@@ -53,9 +53,4 @@ endinterface:output_interface
 interface internal_interface(input wire [31:0] reg5);
 endinterface // internal_interface
 
-   
-
-`endif //  `ifndef GUARD_INTERFACE
-
-   
-   
+`endif //  `ifndef GUARD_INTERFACE   

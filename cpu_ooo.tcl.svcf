@@ -1,0 +1,469 @@
+# SimVision Command Script (Thu Jan 28 06:21:47 PM CST 2016)
+#
+# Version 15.10.s008
+#
+# You can restore this configuration with:
+#
+#     simvision -input cpu_ooo.tcl.svcf
+#  or simvision -input cpu_ooo.tcl.svcf database1 database2 ...
+#
+
+
+#
+# Preferences
+#
+preferences set toolbar-Standard-WatchWindow {
+  usual
+  shown 0
+}
+preferences set plugin-enable-svdatabrowser-new 1
+preferences set toolbar-Windows-WatchWindow {
+  usual
+  shown 0
+}
+preferences set toolbar-OperatingMode-WaveWindow {
+  usual
+  position -pos 5
+  name OperatingMode
+}
+preferences set plugin-enable-svdatabrowser 0
+preferences set plugin-enable-groupscope 0
+preferences set sb-display-values 1
+preferences set sb-callstack-in-window 0
+preferences set plugin-enable-interleaveandcompare 0
+preferences set plugin-enable-waveformfrequencyplot 0
+preferences set toolbar-SimControl-WatchWindow {
+  usual
+  shown 0
+}
+preferences set whats-new-dont-show-at-startup 1
+preferences set toolbar-TimeSearch-WatchWindow {
+  usual
+  shown 0
+}
+
+#
+# PPE data
+#
+array set dbNames ""
+set dbNames(realName1) [database require waves -hints {
+	file ./waves.shm/waves.trn
+	file /home/juren/test/mips_github/waves.shm/waves.trn
+}]
+
+#
+# Conditions
+#
+set expression {top.DUT.dm1.mem[0:127]}
+if {[catch {condition new -name  DM -expr $expression}] != ""} {
+    condition set -using DM -expr $expression
+}
+set expression {top.DUT.im1.mem[0:127]}
+if {[catch {condition new -name  IM -expr $expression}] != ""} {
+    condition set -using IM -expr $expression
+}
+set expression {top.DUT.regm1.mem[0:31]}
+if {[catch {condition new -name  REGM -expr $expression}] != ""} {
+    condition set -using REGM -expr $expression
+}
+set expression {top.DUT.u_rb.rd_rb_tag2[3:0]}
+if {[catch {condition new -name  condition -expr $expression}] != ""} {
+    condition set -using condition -expr $expression
+}
+set expression top.DUT.clk
+if {[catch {condition new -name  cpu_clk -expr $expression}] != ""} {
+    condition set -using cpu_clk -expr $expression
+}
+set expression {top.DUT.u_rb.rd_rb_tag2[3:0]}
+if {[catch {condition new -name  o -expr $expression}] != ""} {
+    condition set -using o -expr $expression
+}
+
+#
+# Mnemonic Maps
+#
+mmap new -reuse -name {Boolean as Logic} -radix %b -contents {{%c=FALSE -edgepriority 1 -shape low}
+{%c=TRUE -edgepriority 1 -shape high}}
+mmap new -reuse -name {Example Map} -radix %x -contents {{%b=11???? -bgcolor orange -label REG:%x -linecolor yellow -shape bus}
+{%x=1F -bgcolor red -label ERROR -linecolor white -shape EVENT}
+{%x=2C -bgcolor red -label ERROR -linecolor white -shape EVENT}
+{%x=* -label %x -linecolor gray -shape bus}}
+
+#
+# Waveform windows
+#
+if {[catch {window new WaveWindow -name "Waveform 1" -geometry 1831x1170+1366+0}] != ""} {
+    window geometry "Waveform 1" 1831x1170+1366+0
+}
+window target "Waveform 1" on
+waveform using {Waveform 1}
+waveform sidebar select designbrowser
+waveform set \
+    -primarycursor TimeA \
+    -signalnames name \
+    -signalwidth 175 \
+    -units ns \
+    -valuewidth 303
+waveform baseline set -time 220,000,000fs
+
+set id [waveform add -signals [subst  {
+	{[format {IM[0:127]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.pc[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.inst[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{[format {cpu_clk}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.clock_mem}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.driver.i}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.stall}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rt[4:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rd[4:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.predict_valid}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.predict_taken}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.pc_predict[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.pc_resolved[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.direct_resolved}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.direct_predict}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.direct_mispredict}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.pc_mispredict}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.pc_predict[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.mispredict}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{[format {DM[0:127]}]}
+	} ]]
+waveform hierarchy collapse $id
+set id [waveform add -signals [subst  {
+	{[format {REGM[0:31]}]}
+	} ]]
+waveform hierarchy collapse $id
+set id [waveform add -cdivider divider]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.pc_head[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.pc_branch[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.pc_head_index[5:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.pc_branch_index[5:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.branch_valid}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.local_b[63:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.local_b_checkpoint[63:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.local_b[7]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.local_b[8]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.direct_resolved}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.i}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.direct_predict}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.direct_mispredict}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.counters[15:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.clk}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.branch_commit}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.local_b_checkpoint[7]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.local_b_checkpoint[8]}]}
+	} ]]
+set id [waveform add -cdivider divider]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rb_head[3:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rb_tail[3:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.inst_valid}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rb_avail}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rb_bsy}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rb_array[15:0]}]}
+	} ]]
+waveform hierarchy expand $id
+set id2 [lindex [waveform hierarchy content $id] 7]
+waveform hierarchy collapse $id2
+set id2 [lindex [waveform hierarchy content $id] 8]
+waveform hierarchy collapse $id2
+set id2 [lindex [waveform hierarchy content $id] 9]
+waveform hierarchy collapse $id2
+set id2 [lindex [waveform hierarchy content $id] 10]
+waveform hierarchy collapse $id2
+set id2 [lindex [waveform hierarchy content $id] 11]
+waveform hierarchy collapse $id2
+set id2 [lindex [waveform hierarchy content $id] 13]
+waveform hierarchy expand $id2
+set id2 [lindex [waveform hierarchy content $id] 14]
+waveform hierarchy collapse $id2
+set id2 [lindex [waveform hierarchy content $id] 15]
+waveform hierarchy collapse $id2
+waveform hierarchy collapse $id
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.inst_type[2:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.seimm_sl2[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.pc4[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.pc[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.inst[31:0]}]}
+	} ]]
+set id [waveform add -cdivider divider]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.reg_rs[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.reg_rt[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rs_tail[1:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rst}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rs_array[3:0]}]}
+	} ]]
+waveform hierarchy expand $id
+set id2 [lindex [waveform hierarchy content $id] 0]
+waveform hierarchy expand $id2
+set id2 [lindex [waveform hierarchy content $id] 1]
+waveform hierarchy collapse $id2
+set id2 [lindex [waveform hierarchy content $id] 2]
+waveform hierarchy collapse $id2
+set id2 [lindex [waveform hierarchy content $id] 3]
+waveform hierarchy collapse $id2
+waveform hierarchy collapse $id
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rs_bsy}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rs_avail}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.mispredict}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rs_req[3:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rs[4:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rt[4:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rd_rb_tag1[3:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.rs_req[3:0]}]}
+	} ]]
+set id [waveform add -cdivider divider]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.commit_dest[6:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.commit_mem_valid}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.commit_reg_valid}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.commit_value[31:0]}]}
+	} ]]
+set id [waveform add -cdivider divider]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.inst_valid}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.inst_type[2:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_regstatus.regs_array[31:0]}]}
+	} ]]
+waveform hierarchy expand $id
+set id2 [lindex [waveform hierarchy content $id] 25]
+waveform hierarchy collapse $id2
+set id2 [lindex [waveform hierarchy content $id] 26]
+waveform hierarchy collapse $id2
+set id2 [lindex [waveform hierarchy content $id] 27]
+waveform hierarchy collapse $id2
+waveform hierarchy collapse $id
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_regstatus.wr_regs_en}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_regstatus.wr_regs_tag[4:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_regstatus.wr_regs_rb_tag[3:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_regstatus.commit_en}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_regstatus.commit_reg_tag[4:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.inst[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.inst_type[2:0]}]}
+	} ]]
+set id [waveform add -cdivider divider]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.lsu_head[1:0]}]}
+	} ]]
+waveform hierarchy collapse $id
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.lsu_array[3:0]}]}
+	} ]]
+waveform hierarchy expand $id
+set id2 [lindex [waveform hierarchy content $id] 2]
+waveform hierarchy expand $id2
+set id2 [lindex [waveform hierarchy content $id] 3]
+waveform hierarchy expand $id2
+waveform hierarchy collapse $id
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.lsu_addr_done}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.lsu_addr[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.lsu_A[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.mem_done}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.mem_value[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.load_addr_safe}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.j}]}
+	} ]]
+set id [waveform add -cdivider divider]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_cdb.cdb_valid}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_cdb.cdb_tag0[3:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_cdb.cdb_req0}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_cdb.cdb_data0[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_cdb.cdb_tag1[3:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_cdb.cdb_req1}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_cdb.cdb_data1[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_cdb.cdb_tag[3:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_cdb.cdb_data[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_cdb.cdb_grant0}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_cdb.cdb_grant1}]}
+	} ]]
+set id [waveform add -cdivider divider]
+
+waveform xview limits 0 3480ns
+
+#
+# Waveform Window Links
+#
+
+#
+# Console windows
+#
+console set -windowname Console
+window geometry Console 1920x1124+0+25
+
+#
+# Layout selection
+#
+

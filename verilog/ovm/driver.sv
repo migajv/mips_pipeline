@@ -51,18 +51,17 @@ class driver extends ovm_driver #(packet);
    endtask // run
 
    virtual task cfg_im(packet pkt);
-      ovm_report_info(get_full_name(),"START of cfg_im() method", OVM_LOW);
+      //ovm_report_info(get_full_name(),"START of cfg_im() method", OVM_LOW);
       @(posedge mem_intf.clock);
       mem_intf.cb.mem_rd_wr <= 1;
       mem_intf.cb.mem_add <= this.i;
       mem_intf.cb.mem_data <= pkt.ir;
       //mem_intf.mem_rd_wr = 1;
       //mem_intf.mem_add = this.i;
-      //mem_intf.mem_data = pkt.ir;      
-      this.i ++;
-      $monitor ("i = %d", i);
-      
-      ovm_report_info(get_full_name(),"END of cfg_im() method", OVM_LOW);
+      //mem_intf.mem_data = pkt.ir;   
+      $monitor ("writing instruction %d into IM", i);
+      this.i ++;      
+      //ovm_report_info(get_full_name(),"END of cfg_im() method", OVM_LOW);
 
    endtask // cfg_im
 

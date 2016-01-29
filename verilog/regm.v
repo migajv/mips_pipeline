@@ -82,6 +82,7 @@ module regm(
 	 for (i = 0; i < 32; i=i+1) begin
 	    mem[i] <= 32'h0;
 	 end
+	 #1 mem[2] <= 1;
       end
       else if (regwrite && wrreg != 5'd0) begin
 	 // write a non $zero register

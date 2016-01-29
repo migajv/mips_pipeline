@@ -21,8 +21,9 @@
 module dm(
           input wire 	     clk,
 	  input wire 	     rst,
-          input wire [6:0]   addr,
-          input wire 	     rd, wr,
+          input wire [6:0]   waddr,
+	  input wire [6:0]   raddr,
+          input wire 	     wr,
           input wire [31:0]  wdata,
           output wire [31:0] rdata);
    
@@ -35,13 +36,15 @@ module dm(
 	 for (i = 0; i < 128; i=i+1) begin
 	    mem[i] <= 32'h0000;
 	 end
+	 #1 mem[20] <= 32'd10;
+	 mem[21] <= 32'h3;
       end
       else if (wr) begin
-         mem[addr] <= wdata;
+         mem[waddr] <= wdata;
       end
    end
 
-   assign rdata = wr ? wdata : mem[addr][31:0];
+   assign rdata = mem[raddr][31:0];
    // During a write, avoid the one cycle delay by reading from 'wdata'
    
 endmodule
