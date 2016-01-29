@@ -3,23 +3,26 @@
 
 
 module b_predictor (
-		    input 	 clk,
-		    input 	 rst,
+		    input 		clk,
+		    input 		rst,
 
-		    input 	 direct_mispredict,
-		    input 	 direct_resolved,
-		    input 	 branch_commit,
-		    input [31:0] pc_head,
-		    input [31:0] pc_branch,
-		    input 	 branch_valid,
+		    input 		direct_mispredict,
+		    input 		direct_resolved,
+		    input 		branch_commit,
+		    input [31:0] 	pc_head, // the pc of commit branch
+		    input [31:0] 	pc_branch, // the pc of branch making predict
+		    input [31:0] 	pc_resolved,
+		    input 		branch_valid,
 
-		    output logic direct_predict
+		    output logic [31:0] btb_pc_predict, 
+		    output logic 	direct_predict
 		    );
 
 
    logic [3:0] local_b [63:0];
    logic [3:0] local_b_checkpoint [63:0];
    logic [1:0] counters [15:0];
+   
    
    integer     i;
    
@@ -87,8 +90,33 @@ module b_predictor (
    end // always @ (posedge clk, negedge rst)
    
 	
-      
+   typedef struct packed{
+      bit [23:0]  pc_branch_tag;
+      bit [31:0]  btb_pc_predict;
+      bit 	  bsy;
+   } btbStruct;
 
+   btbStruct btb_array[63:0];
+
+   always @(posedge clk, negedge rst) begin
+      if (!rst) begin
+	 for (i = 0; i < $size(btb_array); i = i + 1) begin
+	    btb_array[i] <= {$size(btbStruct){1'b0}};
+	 end
+      end
+      else begin
+	 if (branch_commit) begin
+	    btb_array[pc_head_index].bsy <= 1'b1;
+	    btb_array[pc_head_index].pc_branch_tag <= pc_head[31:8];
+	    btb_array[pc_head_index].btb_pc_predict <= pc_resolved;
+	 end
+      end // else: !if(!rst)
+   end // always @ (posedge clk, negedge rst)
+
+   
+   assign btb_pc_predict = (btb_array[pc_branch_index].bsy && btb_array[pc_branch_index].pc_branch_tag == pc_branch[31:8]) ? btb_array[pc_branch_index].btb_pc_predict : 32'h0;
+   
+	   
 
 endmodule // b_predictor
 

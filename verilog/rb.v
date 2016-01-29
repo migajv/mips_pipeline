@@ -134,6 +134,7 @@ module rb (
    logic [31:0] 	       pc_head;
    logic [31:0] 	       pc_branch;
    logic 		       direct_predict;   
+   logic [31:0]		       btb_pc_predict;
    
    
    assign inst_valid = (inst_type == `LOAD || inst_type == `STORE) ? rb_avail & lsu_avail : rb_avail & rs_avail; 
@@ -202,6 +203,9 @@ module rb (
       else if (pc_mispredict) begin
 	 pc_resolved = rb_array[rb_head].pc_taken;
       end
+      else begin
+	 pc_resolved =rb_array[rb_head].pc_predict;
+      end
    end
    
    
@@ -230,7 +234,7 @@ module rb (
             rb_array[rb_tail].pc4 <= pc4;
             rb_array[rb_tail].bsy <= 1'b1;
             rb_array[rb_tail].rdy <= 1'b0;
-	    rb_array[rb_tail].pc_predict <= 32'h14;
+	    rb_array[rb_tail].pc_predict <= btb_pc_predict;
             case(inst_type)
               `ALU: begin
                  rb_array[rb_tail].dest <= rd;
@@ -269,8 +273,10 @@ module rb (
 			      .branch_commit(branch_commit),
 			      .pc_head(pc_head),
 			      .pc_branch(pc_branch),
+			      .pc_resolved(pc_resolved),
 			      .branch_valid(predict_valid),
 
+			      .btb_pc_predict(btb_pc_predict),
 			      .direct_predict(direct_predict)
 			      );
 
@@ -283,7 +289,7 @@ module rb (
         `BRANCH: begin
            predict_taken = direct_predict;
            predict_valid = 1;
-           pc_predict = 32'h14;  // fixme:pc_predict should be rb attribution, in case of nested branch
+           pc_predict = btb_pc_predict;  // fixme:pc_predict should be rb attribution, in case of nested branch
         end
         default: begin
            predict_valid = 0;
