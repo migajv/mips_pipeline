@@ -4,6 +4,7 @@
  `include "arbiter.v"
  `include "cdb.v"
  `include "b_predictor.v"
+ `include "rs.v"
 
 module rb (
            input 	       rst,
@@ -38,9 +39,6 @@ module rb (
 
            input [31:0]        alu_out, // to cdb
 
-
-           //output          avail_rb, //if there is any empty entry in rb
-           //output          avail_rs, //if there is any empty entry in rs
            output logic        stall, // stall if no empty rb or rs entry
 
            output logic [31:0] pc_predict,
@@ -91,29 +89,33 @@ module rb (
     --------------------------------------  
     -----/\----- EXCLUDED -----/\----- */
 
+/*AUTOWIRE*/
+// Beginning of automatic wires (for undeclared instantiated-module outputs)
+logic [`RS_WIDTH-1:0]	rs_req;			// From u_rs1 of rs.v
+// End of automatics
+
+   
    //-----------------------------------------------------------------
    //                 Reorder Buffer (rb)
    //-----------------------------------------------------------------  
 
+   
    logic                       cdb_valid;
    logic [31:0]                cdb_data;
    logic [3:0]                 cdb_tag; //tag
-   logic 		       cdb_grant0;
-   logic 		       cdb_grant1;
+   logic 		       cdb_grant0; //for alu
+   logic 		       cdb_grant1; //for lsu
    
    logic                       rb_avail;
-   logic                       rs_avail;
    
    
    logic                       inst_valid;
-   logic [`RS_WIDTH-1 : 0]     rs_grant;
    logic [3:0] 		       cdb_tag0;
    logic 		       lsu_bsy;
    logic [3+1:0] 	       rb_head_ext, rb_tail_ext; //1 bit overhead to detect full
    logic [3:0] 		       rb_head, rb_tail;
    logic                       rb_bsy;
    logic 		       rdy_s1_dly;
-   logic [`RS_WIDTH-1 : 0]     rs_req;
    
    logic [`RS_TAG_WIDTH-1:0]   lsu_tail; //point to next empty entry
    logic [`RS_TAG_WIDTH-1:0]   lsu_head; //point to queue head
@@ -122,8 +124,7 @@ module rb (
    logic [`RS_TAG_WIDTH-1:0]   store_head; 
    logic [`RS_TAG_WIDTH-1:0]   load_tail; 
    logic [`RS_TAG_WIDTH-1:0]   load_head; 
-   logic 		       rs_bsy;
-   logic [`RS_TAG_WIDTH-1:0]   rs_tail; //point to next empty entry
+
    logic 		       lsu_addr_done;
    logic 		       mem_done;
    logic 		       lsu_avail;
@@ -135,6 +136,7 @@ module rb (
    logic [31:0] 	       pc_branch;
    logic 		       direct_predict;   
    logic [31:0]		       btb_pc_predict;
+   logic 		       rs_avail;
    
    
    assign inst_valid = (inst_type == `LOAD || inst_type == `STORE) ? rb_avail & lsu_avail : rb_avail & rs_avail; 
@@ -235,6 +237,7 @@ module rb (
             rb_array[rb_tail].bsy <= 1'b1;
             rb_array[rb_tail].rdy <= 1'b0;
 	    rb_array[rb_tail].pc_predict <= btb_pc_predict;
+	    rb_array[rb_tail].pc_taken <= seimm_sl2 + pc4;
             case(inst_type)
               `ALU: begin
                  rb_array[rb_tail].dest <= rd;
@@ -359,139 +362,7 @@ module rb (
       end // if (rb_array[rb_head].rdy)
    end // always @ (posedge clk, negedge rst)
 
-   //-----------------------------------------------------------------
-   //                 Reservation Stations (rs)
-   //-----------------------------------------------------------------   
 
-   typedef struct packed{
-      bit [2:0]   inst_type;
-      bit [31:0]  s1;
-      bit [31:0]  s2;
-      bit [31:0]  A;
-      bit 	  rdy_A;
-      bit [3:0]   rb_tag;
-      bit         rdy_s1;
-      bit         rdy_s2;
-      bit         bsy;
-      bit [31:0]  result;
-      bit         rdy_result;
-      bit [5:0]   funct;
-      bit [5:0]   opcode;
-   } rsStruct;
-   rsStruct rs_array [`RS_WIDTH-1:0];
-   
-
-   assign rs_bsy = rs_array[0].bsy & rs_array[1].bsy & rs_array[2].bsy & rs_array[3].bsy;
-   assign rs_avail = ~rs_bsy;   
-   
-   
-   // priority encoder
-   always @(*) begin
-      if (rs_avail == 1'b1) begin
-         for (int i = 0; i < $size(rs_array); i++) begin
-            if (rs_array[i].bsy == 1'b0) begin
-               rs_tail = i;
-               break;
-            end
-         end
-      end
-   end // always @ begin
-
-   
-   always @(posedge clk, negedge rst) begin
-      if (!rst) begin
-         for ( int i = 0; i < $size(rs_array) ; i++) begin
-            rs_array[i] <= {$size(rsStruct){1'b0}};
-         end
-      end
-      //misprediction, flush
-      else if (mispredict) begin 
-         for ( int i = 0; i < $size(rs_array) ; i++) begin
-            rs_array[i] <= {$size(rsStruct){1'b0}};
-         end
-      end
-      else begin
-         if (inst_valid && (inst_type == `ALU || inst_type == `BRANCH)) begin
-            rs_array[rs_tail].inst_type <= inst_type;
-            rs_array[rs_tail].bsy <= 1'b1;
-            rs_array[rs_tail].rb_tag <= rb_tail;
-            rs_array[rs_tail].A <= imm;      // todo: check if need sign extend
-	    rb_array[rb_tail].pc_taken <= seimm_sl2 + pc4;
-            rs_array[rs_tail].funct <= funct;
-            rs_array[rs_tail].opcode <= opcode;
-            
-            if (rd_bsy1) begin // if busy in RegisterStatus, which means in ROB
-               if (rb_array[rd_rb_tag1].rdy) begin
-                  rs_array[rs_tail].s1 <= rb_array[rd_rb_tag1].value;
-                  rs_array[rs_tail].rdy_s1 <= 1'b1;
-               end
-               else begin
-		  //concurrent check cdb, inserting RS and broadcasting may happen at the same time
-		  if (cdb_valid && rd_rb_tag1 == cdb_tag) begin
-		     rs_array[rs_tail].rdy_s1 <= 1'b1;
-		     rs_array[rs_tail].s1 <= cdb_data;
-		  end
-		  //concurrent check commit, inserting RS and commit may happen at the same time;
-		  //cdb broacast has higher priority than commit, since cdb gets latest value
-		  else if (commit_reg_valid && rs == commit_dest) begin
-		     rs_array[rs_tail].rdy_s1 <= 1'b1;
-		     rs_array[rs_tail].s1 <= commit_value;
-		  end
-		  else begin
-		     rs_array[rs_tail].s1 <= rd_rb_tag1;
-		     rs_array[rs_tail].rdy_s1 <= 1'b0;
-		  end
-               end
-            end
-            else begin
-               rs_array[rs_tail].s1 <= reg_rs;
-               rs_array[rs_tail].rdy_s1 <= 1'b1;
-            end // else: !if(rd_bsy1)
-
-            if (rd_bsy2) begin
-               if (rb_array[rd_rb_tag2].rdy) begin
-                  rs_array[rs_tail].s2 <= rb_array[rd_rb_tag2].value;
-                  rs_array[rs_tail].rdy_s2 <= 1'b1;
-               end
-               else begin
-		  //concurrent check cdb, inserting RS and broadcasting may happen at the same time
-		  if (cdb_valid && rd_rb_tag2 == cdb_tag) begin
-		     rs_array[rs_tail].rdy_s2 <= 1'b1;
-		     rs_array[rs_tail].s2 <= cdb_data;
-		  end
-		  //concurrent check commit, inserting RS and commit may happen at the same time;
-		  //cdb broacast has higher priority than commit, since cdb gets latest value
-		  else if (commit_reg_valid && rt == commit_dest) begin
-		     rs_array[rs_tail].rdy_s2 <= 1'b1;
-		     rs_array[rs_tail].s2 <= commit_value;
-		  end		  
-		  else begin
-		     rs_array[rs_tail].s2 <= rd_rb_tag2;
-		     rs_array[rs_tail].rdy_s2 <= 1'b0;
-		  end
-               end
-            end
-            else begin
-               rs_array[rs_tail].s2 <= reg_rt;
-               rs_array[rs_tail].rdy_s2 <= 1'b1;
-            end             
-	 end // if (inst_valid && (inst_type == `ALU || inst_type == `BRANCH))
-      
-	 //cdb tag compare with rs
-	 if (cdb_valid) begin
-            for (int i = 0; i < $size(rs_array) ; i++) begin
-               if (rs_array[i].bsy && !rs_array[i].rdy_s1 && (rs_array[i].s1 == cdb_tag)) begin
-		  rs_array[i].rdy_s1 <= 1'b1;
-		  rs_array[i].s1 <= cdb_data;
-               end
-               if (rs_array[i].bsy && !rs_array[i].rdy_s2 && (rs_array[i].s2 == cdb_tag)) begin
-		  rs_array[i].rdy_s2 <= 1'b1;
-		  rs_array[i].s2 <= cdb_data;
-               end             
-            end
-	 end // if (cdb_valid)   
-      end // else: !if(rb_array[rb_head].rdy && rb_array[rb_head].inst_type == `BRANCH &&... 
-   end // always @ (posedge clk, negedge rst)
 
    // update reg status
    always @(*) begin
@@ -518,83 +389,54 @@ module rb (
    assign wr_regs_rb_tag = rb_tail;
 
 
-   
-   assign rs_req = {rs_array[3].rdy_s1 & rs_array[3].rdy_s2 & rs_array[3].bsy,
-                    rs_array[2].rdy_s1 & rs_array[2].rdy_s2 & rs_array[2].bsy,
-                    rs_array[1].rdy_s1 & rs_array[1].rdy_s2 & rs_array[1].bsy,
-                    rs_array[0].rdy_s1 & rs_array[0].rdy_s2 & rs_array[0].bsy
-                    };
-   
-   //clear rs entry after issue
-   always @(posedge clk) begin
-      if (cdb_grant0) begin
-	 case (rs_grant)
-           4'b0001: begin
-              rs_array[0] <= {$size(rsStruct){1'b0}};
-           end
-           4'b0010: begin
-              rs_array[1] <= {$size(rsStruct){1'b0}};
-           end
-           4'b0100: begin
-              rs_array[2] <= {$size(rsStruct){1'b0}};
-           end     
-           4'b1000: begin
-              rs_array[3] <= {$size(rsStruct){1'b0}};
-           end         
-	 endcase // case rs_grant
-      end
-   end
-   
-   arbiter #(.WIDTH(`RS_WIDTH)) u_arbiter_rs (
-                                              .req (rs_req),
-					      .clk(clk),
-					      .rst(rst),
-                                              .enable (1'b1),  // fixme: connect to function unit avail, for now the ALU only take 1 clock cycle
-                                              .grant (rs_grant),
-                                              .anyreq()
-                                              );
-   // issue to ALU && generate CDB broadcast tag
-   always @(*) begin
-      case (rs_grant)
-        4'b0001: begin
-           alusrc1 = rs_array[0].s1;
-           alusrc2 = rs_array[0].s2;
-           alufunct = rs_array[0].funct;
-           aluopcode = rs_array[0].opcode;
-           cdb_tag0 = rs_array[0].rb_tag;
-        end
-        4'b0010: begin
-           alusrc1 = rs_array[1].s1;
-           alusrc2 = rs_array[1].s2;
-           alufunct = rs_array[1].funct;
-           aluopcode = rs_array[1].opcode;
-           cdb_tag0 = rs_array[1].rb_tag;
-        end
-        4'b0100: begin
-           alusrc1 = rs_array[2].s1;
-           alusrc2 = rs_array[2].s2;
-           alufunct = rs_array[2].funct;
-           aluopcode = rs_array[2].opcode;
-           cdb_tag0 = rs_array[2].rb_tag;
-        end     
-        4'b1000: begin
-           alusrc1 = rs_array[3].s1;
-           alusrc2 = rs_array[3].s2;
-           alufunct = rs_array[3].funct;
-           aluopcode = rs_array[3].opcode;
-           cdb_tag0 = rs_array[3].rb_tag;
-        end
-	default: begin
-           alusrc1 = 0;
-           alusrc2 = 0;
-           alufunct = 0;
-           aluopcode = 0;
-           cdb_tag0 = 0;
-	end	   
-      endcase // case (rs_grant)
-   end // always @ begin
+   //-----------------------------------------------------------------
+   //                 Reservation Stations (rs)
+   //-----------------------------------------------------------------
 
-
+   rs u_rs1 (
+	     .rb_tag1_rdy		(rb_array[rd_rb_tag1].rdy),
+	     .rb_tag1_value		(rb_array[rd_rb_tag1].value),
+	     .rb_tag2_rdy		(rb_array[rd_rb_tag2].rdy),
+	     .rb_tag2_value		(rb_array[rd_rb_tag2].value),
+	     .cdb_tag_alu               (cdb_tag0),
+	     .cdb_grant			(cdb_grant0),
+	     /*AUTOINST*/
+	     // Outputs
+	     .rs_avail			(rs_avail),
+	     .alusrc1			(alusrc1[31:0]),
+	     .alusrc2			(alusrc2[31:0]),
+	     .alufunct			(alufunct[5:0]),
+	     .aluopcode			(aluopcode[5:0]),
+	     .rs_req			(rs_req[`RS_WIDTH-1:0]),
+	     // Inputs
+	     .rst			(rst),
+	     .clk			(clk),
+	     .inst_type			(inst_type[2:0]),
+	     .rs			(rs[4:0]),
+	     .rt			(rt[4:0]),
+	     .rd			(rd[4:0]),
+	     .imm			(imm[15:0]),
+	     .seimm			(seimm[31:0]),
+	     .seimm_sl2			(seimm_sl2[31:0]),
+	     .pc4			(pc4[31:0]),
+	     .funct			(funct[5:0]),
+	     .opcode			(opcode[5:0]),
+	     .reg_rs			(reg_rs[31:0]),
+	     .reg_rt			(reg_rt[31:0]),
+	     .rd_rb_tag1		(rd_rb_tag1[3:0]),
+	     .rd_bsy1			(rd_bsy1),
+	     .rd_rb_tag2		(rd_rb_tag2[3:0]),
+	     .rd_bsy2			(rd_bsy2),
+	     .rb_tail			(rb_tail[3:0]),
+	     .mispredict		(mispredict),
+	     .inst_valid		(inst_valid),
+	     .cdb_valid			(cdb_valid),
+	     .cdb_data			(cdb_data[31:0]),
+	     .cdb_tag			(cdb_tag[3:0]),
+	     .commit_reg_valid		(commit_reg_valid),
+	     .commit_dest		(commit_dest[6:0]),
+	     .commit_value		(commit_value[31:0]));
+	     
    
    //-----------------------------------------------------------------
    //                 Load-Store Unit (lsu)
@@ -619,12 +461,24 @@ module rb (
       
    } lsuStruct;
    
+   typedef struct packed{
+      bit [2:0]   inst_type;
+      bit [31:0]  s1;
+      bit [31:0]  s2;
+      bit [31:0]  A;
+      bit 	  rdy_A;
+      bit [3:0]   rb_tag;
+      bit         rdy_s1;
+      bit         rdy_s2;
+      bit         bsy;
+      bit [31:0]  result;
+      bit         rdy_result;
+      bit [5:0]   funct;
+      bit [5:0]   opcode;
+   } storeStruct;
    
    lsuStruct lsu_array [`RS_WIDTH-1:0];
-   rsStruct store_array [`RS_WIDTH-1:0];
-   rsStruct load_array [`RS_WIDTH-1:0];
-
-
+   storeStruct store_array [`RS_WIDTH-1:0];
    
    assign lsu_bsy = lsu_array[0].bsy & lsu_array[1].bsy & lsu_array[2].bsy & lsu_array[3].bsy;
    assign lsu_avail = ~lsu_bsy;   
@@ -782,16 +636,16 @@ module rb (
       if (!rst) begin
 	 store_tail <= 0;
 	 store_head <= 0;
-         for ( int i = 0; i < $size(rs_array) ; i++) begin
-            store_array[i] <= {$size(rsStruct){1'b0}};
+         for ( int i = 0; i < $size(store_array) ; i++) begin
+            store_array[i] <= {$size(storeStruct){1'b0}};
          end
 	 load_addr_safe <= 1'b0;
       end
       else if (mispredict) begin
 	 store_tail <= 0;
 	 store_head <= 0;	 
-         for ( int i = 0; i < $size(rs_array) ; i++) begin
-            store_array[i] <= {$size(rsStruct){1'b0}};
+         for ( int i = 0; i < $size(store_array) ; i++) begin
+            store_array[i] <= {$size(storeStruct){1'b0}};
          end
 	 load_addr_safe <= 1'b0;
       end
@@ -902,4 +756,9 @@ module rb (
    
 endmodule // rb
 
-`endif
+`endif //  `ifndef _rb
+
+// Emacs Verilog AUTOs
+// Local Variables:
+// verilog-library-directories:("." "../verilog")
+// End:
