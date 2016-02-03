@@ -9,6 +9,8 @@
 module rb (
            input 	       rst,
            input 	       clk,
+
+	   input 	       inst_valid,
            input [2:0] 	       inst_type,
            input [4:0] 	       rs,
            input [4:0] 	       rt,
@@ -19,7 +21,8 @@ module rb (
            input [31:0]        pc4,
            input [5:0] 	       funct,
            input [5:0] 	       opcode, 
-
+	   input [31:0]        pc4_undly,
+	   
            input [4:0] 	       wr_dest,
            input 	       wr_dest_en, // when rs finish exe and to update rb dest (from AGU)
            input [3:0] 	       wr_dest_tag, 
@@ -91,7 +94,7 @@ module rb (
 
 /*AUTOWIRE*/
 // Beginning of automatic wires (for undeclared instantiated-module outputs)
-logic [`RS_WIDTH-1:0]	rs_req;			// From u_rs1 of rs.v
+logic [3:0]		rs_req;			// From u_rs1 of rs.v
 // End of automatics
 
    
@@ -109,7 +112,7 @@ logic [`RS_WIDTH-1:0]	rs_req;			// From u_rs1 of rs.v
    logic                       rb_avail;
    
    
-   logic                       inst_valid;
+   logic                       struct_avail;
    logic [3:0] 		       cdb_tag0;
    logic 		       lsu_bsy;
    logic [3+1:0] 	       rb_head_ext, rb_tail_ext; //1 bit overhead to detect full
@@ -137,10 +140,14 @@ logic [`RS_WIDTH-1:0]	rs_req;			// From u_rs1 of rs.v
    logic 		       direct_predict;   
    logic [31:0]		       btb_pc_predict;
    logic 		       rs_avail;
+   logic 		       branch_valid;
+   logic [31:0] 	       btb_pc_predict_dly;
+   logic 		       direct_predict_dly;
    
+
    
-   assign inst_valid = (inst_type == `LOAD || inst_type == `STORE) ? rb_avail & lsu_avail : rb_avail & rs_avail; 
-   assign stall = ~inst_valid;
+   assign struct_avail = (inst_type == `LOAD || inst_type == `STORE) ? rb_avail & lsu_avail : rb_avail & rs_avail; 
+   assign stall = ~struct_avail;
    assign rb_head = rb_head_ext[3:0];
    assign rb_tail = rb_tail_ext[3:0];
    
@@ -228,7 +235,7 @@ logic [`RS_WIDTH-1:0]	rs_req;			// From u_rs1 of rs.v
       // update rob entry
       else begin
          //new entry
-         if (inst_valid) begin
+         if (struct_avail && inst_valid && inst_type != `EMPTY) begin
 	    if (!(rb_tail_ext[4] ^ rb_head_ext[4] && rb_tail_ext[3:0] == rb_head_ext[3:0])) begin
                rb_tail_ext <= rb_tail_ext + 1;
 	    end
@@ -236,7 +243,7 @@ logic [`RS_WIDTH-1:0]	rs_req;			// From u_rs1 of rs.v
             rb_array[rb_tail].pc4 <= pc4;
             rb_array[rb_tail].bsy <= 1'b1;
             rb_array[rb_tail].rdy <= 1'b0;
-	    rb_array[rb_tail].pc_predict <= btb_pc_predict;
+	    rb_array[rb_tail].pc_predict <= btb_pc_predict_dly;
 	    rb_array[rb_tail].pc_taken <= seimm_sl2 + pc4;
             case(inst_type)
               `ALU: begin
@@ -246,7 +253,7 @@ logic [`RS_WIDTH-1:0]	rs_req;			// From u_rs1 of rs.v
                  rb_array[rb_tail].dest <= rt;
               end
               `BRANCH: begin
-                 rb_array[rb_tail].predict_taken <= direct_predict;
+                 rb_array[rb_tail].predict_taken <= direct_predict_dly;
               end
               default: begin
                  rb_array[rb_tail].dest <= 0;
@@ -267,9 +274,10 @@ logic [`RS_WIDTH-1:0]	rs_req;			// From u_rs1 of rs.v
    assign direct_resolved = direct_mispredict ? ~rb_array[rb_head].predict_taken: rb_array[rb_head].predict_taken;
    assign branch_commit = rb_array[rb_head].rdy && rb_array[rb_head].inst_type == `BRANCH;
    assign pc_head = rb_array[rb_head].pc4 - 4;
-   assign pc_branch = pc4 -4;
+   assign pc_branch = pc4_undly -4;
    
-   b_predictor u_b_predictor (.clk(clk),
+   b_predictor u_b_predictor (//input
+			      .clk(clk),
 			      .rst(rst),
 			      .direct_mispredict(direct_mispredict),
 			      .direct_resolved(direct_resolved),
@@ -277,29 +285,39 @@ logic [`RS_WIDTH-1:0]	rs_req;			// From u_rs1 of rs.v
 			      .pc_head(pc_head),
 			      .pc_branch(pc_branch),
 			      .pc_resolved(pc_resolved),
-			      .branch_valid(predict_valid),
 
+			      //output
+			      .branch_valid(branch_valid),
 			      .btb_pc_predict(btb_pc_predict),
 			      .direct_predict(direct_predict)
 			      );
 
   // assign direct_predict = 1'b1;
+
+   always @(posedge clk, negedge rst) begin
+      if (!rst) begin
+	 btb_pc_predict_dly <= 32'h0;
+	 direct_predict_dly <= 1'b0;
+      end
+      else begin
+	 btb_pc_predict_dly <= btb_pc_predict;
+	 direct_predict_dly <= direct_predict;
+      end
+   end
    
    
 
    always @(*) begin
-      case (inst_type)
-        `BRANCH: begin
+      if (branch_valid) begin
            predict_taken = direct_predict;
            predict_valid = 1;
            pc_predict = btb_pc_predict;  // fixme:pc_predict should be rb attribution, in case of nested branch
-        end
-        default: begin
-           predict_valid = 0;
-	   predict_taken = 0;
-	   pc_predict = 32'h0;
-        end
-      endcase // case (inst_type)
+      end
+      else begin
+         predict_valid = 0;
+	 predict_taken = 0;
+	 pc_predict = 32'h0;
+      end
    end
    
    //commit control signals 
@@ -357,7 +375,12 @@ logic [`RS_WIDTH-1:0]	rs_req;			// From u_rs1 of rs.v
 		 commit_reg_valid <= 1'b0;
 		 commit_mem_valid <= 1'b0;       
 	      end  	      
-           end
+           end // case: `BRANCH
+
+	   default: begin
+	      commit_reg_valid <= 1'b0;
+	      commit_mem_valid <= 1'b0; 
+	   end
          endcase // case (rb_array[rb_head].inst_type)
       end // if (rb_array[rb_head].rdy)
    end // always @ (posedge clk, negedge rst)
@@ -407,7 +430,7 @@ logic [`RS_WIDTH-1:0]	rs_req;			// From u_rs1 of rs.v
 	     .alusrc2			(alusrc2[31:0]),
 	     .alufunct			(alufunct[5:0]),
 	     .aluopcode			(aluopcode[5:0]),
-	     .rs_req			(rs_req[`RS_WIDTH-1:0]),
+	     .rs_req			(rs_req[3:0]),
 	     // Inputs
 	     .rst			(rst),
 	     .clk			(clk),
@@ -430,6 +453,7 @@ logic [`RS_WIDTH-1:0]	rs_req;			// From u_rs1 of rs.v
 	     .rb_tail			(rb_tail[3:0]),
 	     .mispredict		(mispredict),
 	     .inst_valid		(inst_valid),
+	     .struct_avail		(struct_avail),
 	     .cdb_valid			(cdb_valid),
 	     .cdb_data			(cdb_data[31:0]),
 	     .cdb_tag			(cdb_tag[3:0]),
@@ -499,7 +523,7 @@ logic [`RS_WIDTH-1:0]	rs_req;			// From u_rs1 of rs.v
          end
       end	 
       else begin
-	 if (inst_valid && (inst_type == `STORE || inst_type == `LOAD)) begin
+	 if (inst_valid && struct_avail &&  (inst_type == `STORE || inst_type == `LOAD)) begin
             lsu_tail <= lsu_tail + 1;	    
             lsu_array[lsu_tail].inst_type <= inst_type;
             lsu_array[lsu_tail].bsy <= 1'b1;

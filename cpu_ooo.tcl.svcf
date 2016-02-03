@@ -1,4 +1,4 @@
-# SimVision Command Script (Thu Jan 28 06:21:47 PM CST 2016)
+# SimVision Command Script (Tue Feb 02 10:30:36 AM CST 2016)
 #
 # Version 15.10.s008
 #
@@ -92,8 +92,8 @@ mmap new -reuse -name {Example Map} -radix %x -contents {{%b=11???? -bgcolor ora
 #
 # Waveform windows
 #
-if {[catch {window new WaveWindow -name "Waveform 1" -geometry 1831x1170+1366+0}] != ""} {
-    window geometry "Waveform 1" 1831x1170+1366+0
+if {[catch {window new WaveWindow -name "Waveform 1" -geometry 1920x1124+0+25}] != ""} {
+    window geometry "Waveform 1" 1920x1124+0+25
 }
 window target "Waveform 1" on
 waveform using {Waveform 1}
@@ -173,6 +173,25 @@ set id [waveform add -signals [subst  {
 waveform hierarchy collapse $id
 set id [waveform add -cdivider divider]
 set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_iq.inst1_in[31:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_iq.inst1_in_valid}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_iq.clk}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_iq.iq_head[3:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_iq.iq_tail[3:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_iq.singlemode}]}
+	} ]]
+set id [waveform add -cdivider divider]
+set id [waveform add -signals [subst  {
 	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.pc_head[31:0]}]}
 	} ]]
 set id [waveform add -signals [subst  {
@@ -225,6 +244,26 @@ set id [waveform add -signals [subst  {
 	} ]]
 set id [waveform add -signals [subst  {
 	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.local_b_checkpoint[8]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.btb_array[63:0]}]}
+	} ]]
+waveform hierarchy collapse $id
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.btb_array[8]}]}
+	} ]]
+waveform hierarchy expand $id
+set id2 [lindex [waveform hierarchy content $id] 1]
+waveform format $id2 -radix %x
+waveform hierarchy collapse $id
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.btb_array[7]}]}
+	} ]]
+waveform hierarchy expand $id
+set id2 [lindex [waveform hierarchy content $id] 1]
+waveform format $id2 -radix %x
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_b_predictor.btb_pc_predict[31:0]}]}
 	} ]]
 set id [waveform add -cdivider divider]
 set id [waveform add -signals [subst  {
@@ -280,33 +319,34 @@ set id [waveform add -signals [subst  {
 	} ]]
 set id [waveform add -cdivider divider]
 set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_rs1.rs_tail[1:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_rs1.cdb_grant}]}
+	} ]]
+set id [waveform add -signals [subst  {
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_rs1.rs_req[3:0]}]}
+	} ]]
+set id [waveform add -signals [subst  {
 	{$dbNames(realName1)::[format {top.DUT.u_rb.reg_rs[31:0]}]}
 	} ]]
 set id [waveform add -signals [subst  {
 	{$dbNames(realName1)::[format {top.DUT.u_rb.reg_rt[31:0]}]}
 	} ]]
 set id [waveform add -signals [subst  {
-	{$dbNames(realName1)::[format {top.DUT.u_rb.rs_tail[1:0]}]}
-	} ]]
-set id [waveform add -signals [subst  {
 	{$dbNames(realName1)::[format {top.DUT.u_rb.rst}]}
 	} ]]
 set id [waveform add -signals [subst  {
-	{$dbNames(realName1)::[format {top.DUT.u_rb.rs_array[3:0]}]}
+	{$dbNames(realName1)::[format {top.DUT.u_rb.u_rs1.rs_array[3:0]}]}
 	} ]]
 waveform hierarchy expand $id
-set id2 [lindex [waveform hierarchy content $id] 0]
-waveform hierarchy expand $id2
 set id2 [lindex [waveform hierarchy content $id] 1]
 waveform hierarchy collapse $id2
 set id2 [lindex [waveform hierarchy content $id] 2]
 waveform hierarchy collapse $id2
 set id2 [lindex [waveform hierarchy content $id] 3]
-waveform hierarchy collapse $id2
+waveform hierarchy expand $id2
 waveform hierarchy collapse $id
-set id [waveform add -signals [subst  {
-	{$dbNames(realName1)::[format {top.DUT.u_rb.rs_bsy}]}
-	} ]]
 set id [waveform add -signals [subst  {
 	{$dbNames(realName1)::[format {top.DUT.u_rb.rs_avail}]}
 	} ]]
@@ -451,7 +491,7 @@ set id [waveform add -signals [subst  {
 	} ]]
 set id [waveform add -cdivider divider]
 
-waveform xview limits 0 3480ns
+waveform xview limits 0 2000ns
 
 #
 # Waveform Window Links

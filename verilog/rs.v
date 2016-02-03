@@ -30,6 +30,7 @@ module rs (
 
 	   input 	       mispredict,
 	   input 	       inst_valid, // when to insert a new entry
+	   input               struct_avail,
 	   input 	       cdb_valid,
 	   input [31:0]        cdb_data,
 	   input [3:0] 	       cdb_tag, //tag
@@ -113,7 +114,7 @@ module rs (
          end
       end
       else begin
-         if (inst_valid && (inst_type == `ALU || inst_type == `BRANCH)) begin
+         if (inst_valid && struct_avail && (inst_type == `ALU || inst_type == `BRANCH)) begin
             rs_array[rs_tail].inst_type <= inst_type;
             rs_array[rs_tail].bsy <= 1'b1;
             rs_array[rs_tail].rb_tag <= rb_tail;

@@ -12,6 +12,7 @@
 `include "dm.v"
 `include "rb.v"
 `include "regstatus.v"
+`include "iq.v"
 
 `ifndef DEBUG_CPU_STAGES
  `define DEBUG_CPU_STAGES 0
@@ -40,6 +41,13 @@ logic [6:0]		commit_dest;		// From u_rb of rb.v
 logic			commit_mem_valid;	// From u_rb of rb.v
 logic			commit_reg_valid;	// From u_rb of rb.v
 logic [31:0]		commit_value;		// From u_rb of rb.v
+logic [31:0]		inst1;			// From im1 of im.v
+logic [31:0]		inst1_out;		// From u_iq of iq.v
+logic			inst1_out_valid;	// From u_iq of iq.v
+logic			inst1_valid;		// From im1 of im.v
+logic [31:0]		inst2_out;		// From u_iq of iq.v
+logic			inst2_out_valid;	// From u_iq of iq.v
+logic			iq_empty;		// From u_iq of iq.v
 logic [31:0]		lsu_A;			// From u_rb of rb.v
 logic [31:0]		lsu_s1;			// From u_rb of rb.v
 logic [6:0]		mem_addr;		// From u_rb of rb.v
@@ -54,8 +62,11 @@ logic			wr_regs_en;		// From u_rb of rb.v
 logic [3:0]		wr_regs_rb_tag;		// From u_rb of rb.v
 logic [4:0]		wr_regs_tag;		// From u_rb of rb.v
 // End of automatics
-
-
+   logic [31:0] 	inst;
+   logic 		stall_backend;
+   logic 		stall_iq;
+   logic [31:0] 	pc4_dly;
+   
    wire [31:0] 		reg_rs;
    wire [31:0] 		reg_rt;
    wire [31:0] alu_out;
@@ -122,7 +133,7 @@ logic [4:0]		wr_regs_tag;		// From u_rb of rb.v
       if (!rst) begin
 	 pc <= 32'h0;
       end
-      else if (stall) begin
+      else if (stall_iq) begin
          pc <= pc;
       end
       else if (mispredict) begin
@@ -135,42 +146,75 @@ logic [4:0]		wr_regs_tag;		// From u_rb of rb.v
          pc <= pc4;
       end
    end
+
+   //delay pc4 to pass to rb, since all other decode information has 1 cycle delay due to the iq
+   always @(posedge clk, negedge rst) begin
+      if (!rst) begin
+	 pc4_dly <= 32'h0;
+      end
+      else begin
+	 pc4_dly <= pc4;
+      end
+   end
    
-  
       
 	     
 	     
-   wire [31:0] inst;
    im #(.NMEM(NMEM), .IM_DATA(IM_DATA))
-   im1(.addr(pc),
-       .data(inst),
+   im1(.addr                            (pc),
+       .stall				(stall_iq),
        /*AUTOINST*/
+       // Outputs
+       .inst1				(inst1[31:0]),
+       .inst1_valid			(inst1_valid),
        // Inputs
        .clk				(clk),
        .rst				(rst),
        .im_add				(im_add[31:0]),
        .im_data				(im_data[31:0]),
        .im_en				(im_en),
-       .im_rd_wr			(im_rd_wr));
+       .im_rd_wr			(im_rd_wr),
+       .mispredict			(mispredict));
 
    
+   iq u_iq (
+	    .inst1_in			(inst1),
+	    .inst1_in_valid		(inst1_valid),
+	    .inst2_in			(0),
+	    .inst2_in_valid		(0),
+	    .iq_full			(stall_iq),
+	    .singlemode			(1),
+	    /*AUTOINST*/
+	    // Outputs
+	    .iq_empty			(iq_empty),
+	    .inst1_out_valid		(inst1_out_valid),
+	    .inst1_out			(inst1_out[31:0]),
+	    .inst2_out_valid		(inst2_out_valid),
+	    .inst2_out			(inst2_out[31:0]),
+	    // Inputs
+	    .clk			(clk),
+	    .rst			(rst),
+	    .stall_backend		(stall_backend),
+	    .mispredict			(mispredict));
    
-   assign opcode   = inst[31:26];
-   assign rs       = inst[25:21];
-   assign rt       = inst[20:16];
-   assign rd       = inst[15:11];
-   assign imm      = inst[15:0];
-   assign shamt    = inst[10:6];
-   assign jimm     = inst[25:0];
-   assign seimm    = {{16{inst[15]}}, inst[15:0]};
-   assign funct    = inst[5:0];
+
+   
+   assign opcode   = inst1[31:26];
+   assign rs       = inst1[25:21];
+   assign rt       = inst1[20:16];
+   assign rd       = inst1[15:11];
+   assign imm      = inst1[15:0];
+   assign shamt    = inst1[10:6];
+   assign jimm     = inst1[25:0];
+   assign seimm    = {{16{inst1[15]}}, inst1[15:0]};
+   assign funct    = inst1[5:0];
    
 
    reg [2:0]   inst_type;
 
    always @(*) begin
       // if not NOP
-      if (|inst) begin
+      if (|inst1) begin
 	 case (opcode)
 	   6'b000100, 6'b000101: begin //fixme:need to distinguish between BNE and BEQ
 	      inst_type = `BRANCH;
@@ -201,10 +245,12 @@ logic [4:0]		wr_regs_tag;		// From u_rb of rb.v
 	    .wr_dest_en(1'b0),
 	    .wr_dest_tag(0),
     	    .mem_value			(dm_rdata),
-
+	    .stall			(stall_backend),
+	    .inst_valid			(inst1_valid),
+	    .pc4			(pc4_dly),
+	    .pc4_undly                  (pc4),
 	    /*AUTOINST*/
 	   // Outputs
-	   .stall			(stall),
 	   .pc_predict			(pc_predict[31:0]),
 	   .predict_taken		(predict_taken),
 	   .predict_valid		(predict_valid),
@@ -232,7 +278,6 @@ logic [4:0]		wr_regs_tag;		// From u_rb of rb.v
 	   .imm				(imm[15:0]),
 	   .seimm			(seimm[31:0]),
 	   .seimm_sl2			(seimm_sl2[31:0]),
-	   .pc4				(pc4[31:0]),
 	   .funct			(funct[5:0]),
 	   .opcode			(opcode[5:0]),
 	   .rd_rb_tag1			(rd_rb_tag1[3:0]),

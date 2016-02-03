@@ -12,8 +12,8 @@ module b_predictor (
 		    input [31:0] 	pc_head, // the pc of commit branch
 		    input [31:0] 	pc_branch, // the pc of branch making predict
 		    input [31:0] 	pc_resolved,
-		    input 		branch_valid,
-
+		    
+		    output logic 	branch_valid,
 		    output logic [31:0] btb_pc_predict, 
 		    output logic 	direct_predict
 		    );
@@ -23,7 +23,6 @@ module b_predictor (
    logic [3:0] local_b_checkpoint [63:0];
    logic [1:0] counters [15:0];
    
-   
    integer     i;
    
    logic [5:0] pc_head_index, pc_branch_index;
@@ -31,7 +30,8 @@ module b_predictor (
    assign pc_branch_index = pc_branch[7:2];
 
    assign direct_predict = counters[local_b[pc_branch_index]] > 1;
-   
+
+   //speculative local history, not actually used in this implementation
    always @(posedge clk, negedge rst) begin
       if (!rst) begin
 	 for(i = 0; i < 64; i = i + 1) begin
@@ -49,7 +49,8 @@ module b_predictor (
 	 end
       end
    end // always @ (posedge clk, negedge rst)
-   
+
+   // commited local history, used in this implementation
    always @(posedge clk, negedge rst) begin
       if (!rst) begin
 	 for(i = 0; i < 64; i = i + 1) begin
@@ -63,9 +64,6 @@ module b_predictor (
       end
    end // always @ (posedge clk, negedge rst)
    
-   //logic [3:0] history_resolved;
-   //assign history_resolved = (local_b_checkpoint[pc_head_index] << 1) | direct_resolved;
-
    //saturated counter  0:deep untaken, 1:untaken, 2:taken, 3:deep taken
    always @(posedge clk, negedge rst) begin
       if (!rst) begin
@@ -98,6 +96,9 @@ module b_predictor (
 
    btbStruct btb_array[63:0];
 
+
+   //for simplicity, use pc indexed btb; should use associative one
+   //fixme: to implement replace policy
    always @(posedge clk, negedge rst) begin
       if (!rst) begin
 	 for (i = 0; i < $size(btb_array); i = i + 1) begin
@@ -108,11 +109,15 @@ module b_predictor (
 	 if (branch_commit) begin
 	    btb_array[pc_head_index].bsy <= 1'b1;
 	    btb_array[pc_head_index].pc_branch_tag <= pc_head[31:8];
-	    btb_array[pc_head_index].btb_pc_predict <= pc_resolved;
+	    //only updated target pc when it is actually taken
+	    if (direct_resolved) begin
+	       btb_array[pc_head_index].btb_pc_predict <= pc_resolved;
+	    end
 	 end
       end // else: !if(!rst)
    end // always @ (posedge clk, negedge rst)
 
+   assign branch_valid = btb_array[pc_branch_index].bsy;
    
    assign btb_pc_predict = (btb_array[pc_branch_index].bsy && btb_array[pc_branch_index].pc_branch_tag == pc_branch[31:8]) ? btb_array[pc_branch_index].btb_pc_predict : 32'h0;
    

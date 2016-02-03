@@ -22,14 +22,19 @@
  `define _im
 
 module im(
-	  input wire 	     clk,
-	  input wire         rst,
-	  input wire [31:0]  addr,
-	  input wire [31:0]  im_add,
-	  input wire [31:0]  im_data,
-	  input wire 	     im_en,
-	  input wire 	     im_rd_wr, 
-	  output wire [31:0] data);
+	  input wire 	      clk,
+	  input wire 	      rst,
+	  input wire [31:0]   addr,
+	  input wire [31:0]   im_add,
+	  input wire [31:0]   im_data,
+	  input wire 	      im_en,
+	  input wire 	      im_rd_wr,
+	  input 	      stall,
+	  input 	      mispredict,
+	  
+	  output logic [31:0] inst1,
+	  output logic 	      inst1_valid
+	  );
 
    parameter NMEM = 128;   // Number of memory entries,
    // not the same as the memory size
@@ -44,15 +49,7 @@ module im(
 
      end
 
-/* -----\/----- EXCLUDED -----\/-----
-   always@(*)
-     begin
-	if (im_rd_wr == 1)
-	  begin
-	     mem[im_add] = im_data;
-	  end
-     end
- -----/\----- EXCLUDED -----/\----- */
+   // without clk to let driver fist write instructions into im
    always @(*) begin
       if (!rst) begin
 	 for (i = 0; i < 128; i=i+1) begin
@@ -64,8 +61,21 @@ module im(
       end
    end
 
+   always @(posedge clk, negedge rst) begin
+      if (!rst) begin
+	 inst1 <= 32'h0;
+	 inst1_valid <= 1'b0;
+      end
+      else if (stall || mispredict) begin
+	 inst1 <= 32'h0;
+	 inst1_valid <= 1'b0;
+      end
+      else begin
+	 inst1 <= mem[addr[8:2]][31:0];
+	 inst1_valid <= 1'b1;
+      end
+   end
    
-   assign data = mem[addr[8:2]][31:0];
 endmodule
 
 `endif
