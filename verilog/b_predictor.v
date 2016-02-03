@@ -31,7 +31,7 @@ module b_predictor (
 
    assign direct_predict = counters[local_b[pc_branch_index]] > 1;
 
-   //speculative local history, not actually used in this implementation
+   //speculative local history, used for index counter
    always @(posedge clk, negedge rst) begin
       if (!rst) begin
 	 for(i = 0; i < 64; i = i + 1) begin
@@ -50,7 +50,7 @@ module b_predictor (
       end
    end // always @ (posedge clk, negedge rst)
 
-   // commited local history, used in this implementation
+   // commited local history, used for counter update
    always @(posedge clk, negedge rst) begin
       if (!rst) begin
 	 for(i = 0; i < 64; i = i + 1) begin
