@@ -33,6 +33,7 @@ module im(
 	  input 	      mispredict,
 	  
 	  output logic [31:0] inst1,
+	  output logic [31:0] inst1_pc,
 	  output logic 	      inst1_valid
 	  );
 
@@ -65,14 +66,17 @@ module im(
       if (!rst) begin
 	 inst1 <= 32'h0;
 	 inst1_valid <= 1'b0;
+	 inst1_pc <= 32'h0;
       end
       else if (stall || mispredict) begin
 	 inst1 <= 32'h0;
 	 inst1_valid <= 1'b0;
+	 inst1_pc <= 32'h0;
       end
       else begin
 	 inst1 <= mem[addr[8:2]][31:0];
 	 inst1_valid <= 1'b1;
+	 inst1_pc <= addr;
       end
    end
    

@@ -37,21 +37,29 @@ module cpu_ooo(
    //
 /*AUTOWIRE*/
 // Beginning of automatic wires (for undeclared instantiated-module outputs)
+logic			branch_commit;		// From u_rb of rb.v
+logic			branch_valid;		// From u_b_predictor of b_predictor.v
+logic [31:0]		btb_pc_predict;		// From u_b_predictor of b_predictor.v
 logic [6:0]		commit_dest;		// From u_rb of rb.v
 logic			commit_mem_valid;	// From u_rb of rb.v
 logic			commit_reg_valid;	// From u_rb of rb.v
 logic [31:0]		commit_value;		// From u_rb of rb.v
-logic [31:0]		inst1;			// From im1 of im.v
+logic			direct_mispredict;	// From u_rb of rb.v
+logic			direct_predict;		// From u_b_predictor of b_predictor.v
+logic			direct_resolved;	// From u_rb of rb.v
 logic [31:0]		inst1_out;		// From u_iq of iq.v
+logic [31:0]		inst1_out_pc4;		// From u_iq of iq.v
 logic			inst1_out_valid;	// From u_iq of iq.v
-logic			inst1_valid;		// From im1 of im.v
+logic [31:0]		inst1_pc;		// From im1 of im.v
 logic [31:0]		inst2_out;		// From u_iq of iq.v
+logic [31:0]		inst2_out_pc4;		// From u_iq of iq.v
 logic			inst2_out_valid;	// From u_iq of iq.v
 logic			iq_empty;		// From u_iq of iq.v
 logic [31:0]		lsu_A;			// From u_rb of rb.v
 logic [31:0]		lsu_s1;			// From u_rb of rb.v
 logic [6:0]		mem_addr;		// From u_rb of rb.v
 logic			mispredict;		// From u_rb of rb.v
+logic [31:0]		pc_head;		// From u_rb of rb.v
 logic			predict_taken;		// From u_rb of rb.v
 logic			predict_valid;		// From u_rb of rb.v
 wire			rd_bsy1;		// From u_regstatus of regstatus.v
@@ -94,6 +102,9 @@ logic [4:0]		wr_regs_tag;		// From u_rb of rb.v
    wire [5:0]  funct;
    wire [31:0] seimm_sl2;
    
+   logic       out_direct_predict;	       
+   logic       out_branch_valid;		
+   logic [31:0] out_btb_pc_predict;	        
    
    parameter NMEM = 20;  // number in instruction memory
    parameter IM_DATA = "im_data.txt";
@@ -127,7 +138,6 @@ logic [4:0]		wr_regs_tag;		// From u_rb of rb.v
    wire [31:0] 	pc_resolved ; // generated from AGU(address generation unit) from branch instruction
    wire [31:0] 	pc_predict;
    
-
    
    always @(posedge clk, negedge rst) begin
       if (!rst) begin
@@ -139,34 +149,29 @@ logic [4:0]		wr_regs_tag;		// From u_rb of rb.v
       else if (mispredict) begin
 	 pc <= pc_resolved;
       end
-      else if (predict_taken && predict_valid) begin
-	 pc <= pc_predict;
+      else if (direct_predict && branch_valid) begin
+	 pc <= btb_pc_predict;
       end
       else begin
          pc <= pc4;
       end
    end
 
-   //delay pc4 to pass to rb, since all other decode information has 1 cycle delay due to the iq
-   always @(posedge clk, negedge rst) begin
-      if (!rst) begin
-	 pc4_dly <= 32'h0;
-      end
-      else begin
-	 pc4_dly <= pc4;
-      end
-   end
    
-      
+   logic [31:0] inst1_in;
+   logic 	inst1_in_valid;
+   
 	     
 	     
    im #(.NMEM(NMEM), .IM_DATA(IM_DATA))
    im1(.addr                            (pc),
        .stall				(stall_iq),
+       //outputs
+       .inst1				(inst1_in[31:0]),
+       .inst1_valid			(inst1_in_valid),
        /*AUTOINST*/
        // Outputs
-       .inst1				(inst1[31:0]),
-       .inst1_valid			(inst1_valid),
+       .inst1_pc			(inst1_pc[31:0]),
        // Inputs
        .clk				(clk),
        .rst				(rst),
@@ -176,45 +181,97 @@ logic [4:0]		wr_regs_tag;		// From u_rb of rb.v
        .im_rd_wr			(im_rd_wr),
        .mispredict			(mispredict));
 
+   b_predictor u_b_predictor (//input
+                              .pc_branch	(pc),
+			      //output
+
+			      /*AUTOINST*/
+			      // Outputs
+			      .branch_valid	(branch_valid),
+			      .btb_pc_predict	(btb_pc_predict[31:0]),
+			      .direct_predict	(direct_predict),
+			      // Inputs
+			      .clk		(clk),
+			      .rst		(rst),
+			      .direct_mispredict(direct_mispredict),
+			      .direct_resolved	(direct_resolved),
+			      .branch_commit	(branch_commit),
+			      .pc_head		(pc_head[31:0]),
+			      .pc_resolved	(pc_resolved[31:0]));
+   logic 	branch_valid_dly;
+   logic [31:0] btb_pc_predict_dly;
+   logic 	direct_predict_dly;
+
+   always @(posedge clk, negedge rst) begin
+      if (!rst) begin
+	 branch_valid_dly <= 1'b0;
+	 btb_pc_predict_dly <= 32'h0;
+	 direct_predict_dly <= 1'b0;
+      end
+      else begin
+	 branch_valid_dly <= branch_valid;
+	 btb_pc_predict_dly <= btb_pc_predict;
+	 direct_predict_dly <= direct_predict;
+      end
+   end
+   
+   //send three outputs of predictor to iq, need to delay one cycle of them to match the delay in im
+   // the output of iq then send to rb
+
+   
    
    iq u_iq (
-	    .inst1_in			(inst1),
-	    .inst1_in_valid		(inst1_valid),
+	    .inst1_in			(inst1_in),
+	    .inst1_in_valid		(inst1_in_valid),
+	    .inst1_in_pc4		(inst1_pc + 4),
 	    .inst2_in			(0),
 	    .inst2_in_valid		(0),
+	    .inst2_in_pc4		(0),
 	    .iq_full			(stall_iq),
 	    .singlemode			(1),
+	    .in_branch_valid		(branch_valid_dly),
+	    .in_btb_pc_predict		(btb_pc_predict_dly),
+	    .in_direct_predict		(direct_predict_dly),
+	    .branch_valid		(out_branch_valid),
+	    .btb_pc_predict		(out_btb_pc_predict[31:0]),
+	    .direct_predict		(out_direct_predict),	    
 	    /*AUTOINST*/
 	    // Outputs
 	    .iq_empty			(iq_empty),
 	    .inst1_out_valid		(inst1_out_valid),
 	    .inst1_out			(inst1_out[31:0]),
+	    .inst1_out_pc4		(inst1_out_pc4[31:0]),
 	    .inst2_out_valid		(inst2_out_valid),
 	    .inst2_out			(inst2_out[31:0]),
+	    .inst2_out_pc4		(inst2_out_pc4[31:0]),
 	    // Inputs
 	    .clk			(clk),
 	    .rst			(rst),
 	    .stall_backend		(stall_backend),
 	    .mispredict			(mispredict));
-   
 
    
-   assign opcode   = inst1[31:26];
-   assign rs       = inst1[25:21];
-   assign rt       = inst1[20:16];
-   assign rd       = inst1[15:11];
-   assign imm      = inst1[15:0];
-   assign shamt    = inst1[10:6];
-   assign jimm     = inst1[25:0];
-   assign seimm    = {{16{inst1[15]}}, inst1[15:0]};
-   assign funct    = inst1[5:0];
+
+
+
+   
+   
+   assign opcode   = inst1_out[31:26];
+   assign rs       = inst1_out[25:21];
+   assign rt       = inst1_out[20:16];
+   assign rd       = inst1_out[15:11];
+   assign imm      = inst1_out[15:0];
+   assign shamt    = inst1_out[10:6];
+   assign jimm     = inst1_out[25:0];
+   assign seimm    = {{16{inst1_out[15]}}, inst1_out[15:0]};
+   assign funct    = inst1_out[5:0];
    
 
    reg [2:0]   inst_type;
 
    always @(*) begin
       // if not NOP
-      if (|inst1) begin
+      if (|inst1_out) begin
 	 case (opcode)
 	   6'b000100, 6'b000101: begin //fixme:need to distinguish between BNE and BEQ
 	      inst_type = `BRANCH;
@@ -246,9 +303,12 @@ logic [4:0]		wr_regs_tag;		// From u_rb of rb.v
 	    .wr_dest_tag(0),
     	    .mem_value			(dm_rdata),
 	    .stall			(stall_backend),
-	    .inst_valid			(inst1_valid),
-	    .pc4			(pc4_dly),
+	    .inst_valid			(inst1_out_valid),
+	    .pc4			(inst1_out_pc4),
 	    .pc4_undly                  (pc4),
+	   .branch_valid		(out_branch_valid),
+	   .btb_pc_predict		(out_btb_pc_predict[31:0]),
+	   .direct_predict		(out_direct_predict),	    
 	    /*AUTOINST*/
 	   // Outputs
 	   .pc_predict			(pc_predict[31:0]),
@@ -269,6 +329,10 @@ logic [4:0]		wr_regs_tag;		// From u_rb of rb.v
 	   .alusrc2			(alusrc2[31:0]),
 	   .alufunct			(alufunct[5:0]),
 	   .aluopcode			(aluopcode[5:0]),
+	   .direct_mispredict		(direct_mispredict),
+	   .direct_resolved		(direct_resolved),
+	   .branch_commit		(branch_commit),
+	   .pc_head			(pc_head[31:0]),
 	   .mem_addr			(mem_addr[6:0]),
 	   // Inputs
 	   .inst_type			(inst_type[2:0]),

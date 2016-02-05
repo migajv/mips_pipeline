@@ -67,6 +67,14 @@ module rb (
            output logic [5:0]  alufunct,
            output logic [5:0]  aluopcode,
 
+	   output logic        direct_mispredict,
+	   output logic        direct_resolved,
+	   output logic        branch_commit,
+	   output logic [31:0] pc_head,
+	   input 	       branch_valid,
+	   input [31:0]        btb_pc_predict,
+	   input 	       direct_predict,
+	   
 	   //output logic        mem_wr,
            output logic [6:0]  mem_addr // load mem addr
            );
@@ -132,17 +140,13 @@ logic [3:0]		rs_req;			// From u_rs1 of rs.v
    logic 		       mem_done;
    logic 		       lsu_avail;
    logic 		       pc_mispredict;
-   logic 		       direct_mispredict;
-   logic 		       direct_resolved;
-   logic 		       branch_commit;
-   logic [31:0] 	       pc_head;
+   
+   
+   
+   
    logic [31:0] 	       pc_branch;
-   logic 		       direct_predict;   
-   logic [31:0]		       btb_pc_predict;
    logic 		       rs_avail;
-   logic 		       branch_valid;
-   logic [31:0] 	       btb_pc_predict_dly;
-   logic 		       direct_predict_dly;
+
    
 
    
@@ -243,7 +247,7 @@ logic [3:0]		rs_req;			// From u_rs1 of rs.v
             rb_array[rb_tail].pc4 <= pc4;
             rb_array[rb_tail].bsy <= 1'b1;
             rb_array[rb_tail].rdy <= 1'b0;
-	    rb_array[rb_tail].pc_predict <= btb_pc_predict_dly;
+	    rb_array[rb_tail].pc_predict <= btb_pc_predict;
 	    rb_array[rb_tail].pc_taken <= seimm_sl2 + pc4;
             case(inst_type)
               `ALU: begin
@@ -253,7 +257,7 @@ logic [3:0]		rs_req;			// From u_rs1 of rs.v
                  rb_array[rb_tail].dest <= rt;
               end
               `BRANCH: begin
-                 rb_array[rb_tail].predict_taken <= direct_predict_dly;
+                 rb_array[rb_tail].predict_taken <= direct_predict;
               end
               default: begin
                  rb_array[rb_tail].dest <= 0;
@@ -276,6 +280,7 @@ logic [3:0]		rs_req;			// From u_rs1 of rs.v
    assign pc_head = rb_array[rb_head].pc4 - 4;
    assign pc_branch = pc4_undly -4;
    
+/* -----\/----- EXCLUDED -----\/-----
    b_predictor u_b_predictor (//input
 			      .clk(clk),
 			      .rst(rst),
@@ -291,19 +296,10 @@ logic [3:0]		rs_req;			// From u_rs1 of rs.v
 			      .btb_pc_predict(btb_pc_predict),
 			      .direct_predict(direct_predict)
 			      );
+ -----/\----- EXCLUDED -----/\----- */
 
   // assign direct_predict = 1'b1;
 
-   always @(posedge clk, negedge rst) begin
-      if (!rst) begin
-	 btb_pc_predict_dly <= 32'h0;
-	 direct_predict_dly <= 1'b0;
-      end
-      else begin
-	 btb_pc_predict_dly <= btb_pc_predict;
-	 direct_predict_dly <= direct_predict;
-      end
-   end
    
    
 
